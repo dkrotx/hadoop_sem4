@@ -11,5 +11,6 @@ repositories {
 dependencies {
     compile 'org.apache.hadoop:hadoop-common:2.6.0'
     compile 'org.apache.hadoop:hadoop-mapreduce-client-core:2.6.0'
-    compile 'org.apache.hbase:hbase:1.2.2'
+    compile 'org.apache.hbase:hbase-client:1.2.2'
+    compile 'org.apache.hbase:hbase-server:1.2.2'
 }

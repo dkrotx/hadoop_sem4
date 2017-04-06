@@ -14,6 +14,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import static java.nio.charset.StandardCharsets.*;
 
 import java.io.IOException;
 
@@ -29,7 +30,7 @@ public class HBaseOutputDemo extends Configured implements Tool {
         String input_path = args[0];
         String output_table = args[1];
 
-        Job job = Job.getInstance(getConf(), "HBaseBulkDemo");
+        Job job = Job.getInstance(getConf(), "HBaseOutputDemo");
         job.setJarByClass(HBaseWordCount.class);
         FileInputFormat.addInputPath(job, new Path(input_path));
 
@@ -49,7 +50,16 @@ public class HBaseOutputDemo extends Configured implements Tool {
     static public class TextInputMapper extends Mapper<LongWritable, Text, Text, Text> {
         @Override
         protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-            /* write your code here */
+            String[] items = value.toString().split("\t");
+            if (items.length != 2) {
+                context.getCounter("COMMON", "bad_input").increment(1);
+                return;
+            }
+
+            String url = items[0];
+            String doc = new String(Base64.decodeBase64(items[1]), UTF_8);
+
+            context.write(new Text(url), new Text(doc));
         }
     }
 
@@ -58,8 +68,11 @@ public class HBaseOutputDemo extends Configured implements Tool {
         protected void reduce(Text key, Iterable<Text> texts, Context context) throws IOException, InterruptedException {
             String url = key.toString();
             String text = texts.iterator().next().toString();
-            
-            /* write your code here: url,put assumed */
+
+            Put put = new Put(url.getBytes());
+            put.addColumn(Bytes.toBytes("htmls"), Bytes.toBytes("text"), text.getBytes(UTF_8));
+
+            context.write(new ImmutableBytesWritable(url.getBytes()), put);
         }
     }
 

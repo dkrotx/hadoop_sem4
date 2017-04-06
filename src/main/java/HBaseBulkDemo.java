@@ -4,10 +4,11 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.HFileOutputFormat2;
-import org.apache.hadoop.hbase.mapreduce.LoadIncrementalHFiles;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -17,42 +18,33 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.nio.charset.StandardCharsets.*;
 
 import java.io.IOException;
 
 
 public class HBaseBulkDemo extends Configured implements Tool {
-    private static Logger LOG = LoggerFactory.getLogger(HBaseBulkDemo.class);
+    public static void main(String[] args) throws Exception {
+        int rc = ToolRunner.run(HBaseConfiguration.create(), new HBaseBulkDemo(), args);
+        System.exit(rc);
+    }
 
     @Override
     public int run(String[] args) throws Exception {
         String input_path = args[0];
         TableName output_table = TableName.valueOf(args[1]);
-        Path bulks_dir = new Path(args[2]);
+        BulkLoadHelper load_helper = new BulkLoadHelper(getConf());
 
-        Job job = GetJobConf(input_path, output_table, bulks_dir);
+        Job job = MakeJobConf(input_path, output_table, load_helper.GetBulksDirectory());
         if (!job.waitForCompletion(true))
             return 1;
 
-        LOG.info("loading hfiles");
-        Connection connection = ConnectionFactory.createConnection(getConf());
-        Table table = connection.getTable(output_table);
-
-        LoadIncrementalHFiles loader = new LoadIncrementalHFiles(getConf());
-        loader.doBulkLoad(
-                bulks_dir,
-                connection.getAdmin(),
-                table,
-                connection.getRegionLocator(output_table)
-        );
-
+        load_helper.BulkLoad(output_table);
         return 0;
     }
 
-    Job GetJobConf(String input_path, TableName output_table, Path bulks_dir) throws IOException {
-        Job job = Job.getInstance(getConf(), "HBaseBulkDemo");
+    private Job MakeJobConf(String input_path, TableName output_table, Path bulks_dir) throws IOException {
+        Job job = Job.getInstance(getConf(), HBaseBulkDemo.class.getName());
         job.setJarByClass(HBaseBulkDemo.class);
         FileInputFormat.addInputPath(job, new Path(input_path));
 
@@ -78,15 +70,13 @@ public class HBaseBulkDemo extends Configured implements Tool {
             }
 
             String url = items[0];
-            String doc = new String(Base64.decodeBase64(items[1]), "UTF8");
+            String doc = new String(Base64.decodeBase64(items[1]), UTF_8);
 
-            /* write your code here */
+            Put put = new Put(url.getBytes());
+            put.addColumn(Bytes.toBytes("htmls"), Bytes.toBytes("text"), doc.getBytes(UTF_8))
+                    .addColumn(Bytes.toBytes("htmls"), Bytes.toBytes("size"), Bytes.toBytes(doc.length()));
+
+            context.write(new ImmutableBytesWritable(url.getBytes()), put);
         }
-    }
-
-
-    public static void main(String[] args) throws Exception {
-        int rc = ToolRunner.run(HBaseConfiguration.create(), new HBaseBulkDemo(), args);
-        System.exit(rc);
     }
 }

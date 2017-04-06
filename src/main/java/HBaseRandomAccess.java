@@ -13,12 +13,18 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 public class HBaseRandomAccess {
+    private String table_name = "YOURNAME_table";
+
     void DemoPut() throws IOException {
         Configuration conf = HBaseConfiguration.create();
         Connection connection = ConnectionFactory.createConnection(conf);
 
-        Table table = connection.getTable(TableName.valueOf("test"));
-        /* write your code here */
+        Table table = connection.getTable(TableName.valueOf(table_name));
+        Put put = new Put(Bytes.toBytes("microsoft.com"));
+        put.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("owner"), Bytes.toBytes("Bill Gates"));
+        put.addColumn(Bytes.toBytes("cf"), Bytes.toBytes("last_updated"), Bytes.toBytes(1478039132000L));
+        table.put(put);
+
 
         table.close();
         connection.close();
@@ -28,7 +34,9 @@ public class HBaseRandomAccess {
         Configuration conf = HBaseConfiguration.create();
         Connection connection = ConnectionFactory.createConnection(conf);
 
-        /* write actual 'get' here (assumed Result res) */
+        Table table = connection.getTable(TableName.valueOf(table_name));
+        Get get = new Get(Bytes.toBytes("microsoft.com"));
+        Result res = table.get(get);
         for(Cell cell: res.listCells()) {
             String qualifier = Bytes.toString(CellUtil.cloneQualifier(cell));
             String value = Bytes.toString(CellUtil.cloneValue(cell));
@@ -63,7 +71,14 @@ public class HBaseRandomAccess {
         Configuration conf = HBaseConfiguration.create();
         Connection connection = ConnectionFactory.createConnection(conf);
 
-        /* write your code here using PrintResult */ 
+        Table table = connection.getTable(TableName.valueOf("webpages"));
+        Scan scan = new Scan().addColumn(Bytes.toBytes("htmls"), Bytes.toBytes("text"));
+        ResultScanner scanner = table.getScanner(scan);
+
+        for (Result res: scanner)
+            PrintResult(res);
+
+        table.close();
         connection.close();
     }
 
@@ -77,7 +92,7 @@ public class HBaseRandomAccess {
             demo.DemoPut();
         else if (args[0].equals("get"))
             demo.DemoGet();
-        if (args[0].equals("scan"))
+        else if (args[0].equals("scan"))
             demo.DemoScan();
         else
             usage();

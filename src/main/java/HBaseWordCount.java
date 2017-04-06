@@ -19,6 +19,8 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
+import static java.nio.charset.StandardCharsets.*;
+
 import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,8 +40,10 @@ public class HBaseWordCount extends Configured implements Tool {
         Job job = Job.getInstance(getConf(), HBaseWordCount.class.getCanonicalName());
         job.setJarByClass(HBaseWordCount.class);
 
-        Scan scan = new Scan().addColumn(Bytes.toBytes("htmls"), Bytes.toBytes("text"));
-
+        Scan scan = new Scan().setFilter(
+                new SingleColumnValueFilter(Bytes.toBytes("htmls"), Bytes.toBytes("size"),
+                        CompareFilter.CompareOp.GREATER_OR_EQUAL, Bytes.toBytes(10000))
+        );
         TableMapReduceUtil.initTableMapperJob(
                 input_table,
                 scan,
@@ -62,18 +66,30 @@ public class HBaseWordCount extends Configured implements Tool {
         @Override
         protected void map(ImmutableBytesWritable key, Result value, Context context) throws IOException, InterruptedException {
             Cell cell = value.getColumnLatestCell(Bytes.toBytes("htmls"), Bytes.toBytes("text"));
-            String text = new String(CellUtil.cloneValue(cell), "UTF8");
+            String text = new String(CellUtil.cloneValue(cell), UTF_8);
 
-            /* write your code here */
-            /*Matcher matcher = word_expr.matcher(text);
-            while (matcher.find()) {*/
+            Cell cell_size = value.getColumnLatestCell(Bytes.toBytes("htmls"), Bytes.toBytes("size"));
+            int n = Bytes.toInt(CellUtil.cloneValue(cell_size));
+            if (n < 10000)
+                context.getCounter("COMMON", "BAD_REDUCER_INPUTS").increment(1);
+
+            Matcher matcher = word_expr.matcher(text);
+            while (matcher.find()) {
+                String word = matcher.group().toLowerCase();
+                context.write(new Text(word), one);
+            }
         }
     }
 
     static public class DemoReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
         @Override
         protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            /* write your code here */
+            int sum = 0;
+            for (IntWritable x: values) {
+                sum += x.get();
+            }
+
+            context.write(key, new IntWritable(sum));
         }
     }
 
