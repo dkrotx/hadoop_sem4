@@ -40,7 +40,8 @@ public class HBaseWordCount extends Configured implements Tool {
         Job job = Job.getInstance(getConf(), HBaseWordCount.class.getCanonicalName());
         job.setJarByClass(HBaseWordCount.class);
 
-        Scan scan = new Scan();
+        Scan scan = new Scan().addColumn(Bytes.toBytes("htmls"), Bytes.toBytes("text")).
+			       addColumn(Bytes.toBytes("htmls"), Bytes.toBytes("size"));
         /* write your filter expression here */
 
         TableMapReduceUtil.initTableMapperJob(
