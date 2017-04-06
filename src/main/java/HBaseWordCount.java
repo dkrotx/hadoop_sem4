@@ -40,10 +40,9 @@ public class HBaseWordCount extends Configured implements Tool {
         Job job = Job.getInstance(getConf(), HBaseWordCount.class.getCanonicalName());
         job.setJarByClass(HBaseWordCount.class);
 
-        Scan scan = new Scan().setFilter(
-                new SingleColumnValueFilter(Bytes.toBytes("htmls"), Bytes.toBytes("size"),
-                        CompareFilter.CompareOp.GREATER_OR_EQUAL, Bytes.toBytes(10000))
-        );
+        Scan scan = new Scan();
+        /* write your filter expression here */
+
         TableMapReduceUtil.initTableMapperJob(
                 input_table,
                 scan,
@@ -70,7 +69,7 @@ public class HBaseWordCount extends Configured implements Tool {
 
             Cell cell_size = value.getColumnLatestCell(Bytes.toBytes("htmls"), Bytes.toBytes("size"));
             int n = Bytes.toInt(CellUtil.cloneValue(cell_size));
-            if (n < 10000)
+            if (n < 9*1024 || n > 10*1024)
                 context.getCounter("COMMON", "BAD_REDUCER_INPUTS").increment(1);
 
             Matcher matcher = word_expr.matcher(text);
