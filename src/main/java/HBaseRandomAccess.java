@@ -13,7 +13,11 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 public class HBaseRandomAccess {
-    private String table_name = "YOURNAME_table";
+    private String table_name = null;
+
+    HBaseRandomAccess(String table) {
+        table_name = table;
+    }
 
     void DemoPut() throws IOException {
         Configuration conf = HBaseConfiguration.create();
@@ -43,14 +47,6 @@ public class HBaseRandomAccess {
             System.out.printf("Qualifier: %s : Value: %s\n", qualifier, value);
         }
 
-        /*CellScanner scanner = res.cellScanner();
-        while (scanner.advance()) {
-            Cell cell = scanner.current();
-            String qualifier = Bytes.toString(CellUtil.cloneQualifier(cell));
-            String value = Bytes.toString(CellUtil.cloneValue(cell));
-            System.out.printf("++ Qualifier: %s : Value: %s\n", qualifier, value);
-        }*/
-
         table.close();
         connection.close();
     }
@@ -71,7 +67,7 @@ public class HBaseRandomAccess {
         Configuration conf = HBaseConfiguration.create();
         Connection connection = ConnectionFactory.createConnection(conf);
 
-        Table table = connection.getTable(TableName.valueOf("webpages"));
+        Table table = connection.getTable(TableName.valueOf(table_name));
         Scan scan = new Scan().addColumn(Bytes.toBytes("htmls"), Bytes.toBytes("text"));
         ResultScanner scanner = table.getScanner(scan);
 
@@ -83,23 +79,24 @@ public class HBaseRandomAccess {
     }
 
     public static void main(String[] args) throws IOException {
-        HBaseRandomAccess demo = new HBaseRandomAccess();
-
-        if (args.length != 1)
+        if (args.length != 2)
             usage();
+        
+        HBaseRandomAccess demo = new HBaseRandomAccess(args[0]);
+        String action = args[1];
 
-        if (args[0].equals("put"))
+        if (action.equals("put"))
             demo.DemoPut();
-        else if (args[0].equals("get"))
+        else if (action.equals("get"))
             demo.DemoGet();
-        else if (args[0].equals("scan"))
+        else if (action.equals("scan"))
             demo.DemoScan();
         else
             usage();
     }
 
     static void usage() {
-        System.err.println("wrong usage!");
+        System.err.println("Usage: jar table {put|get|scan}");
         System.exit(64);
     }
 }
